@@ -77,8 +77,13 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2) {
+    p->slot--;
+    if (p->slot == 0){
+      p->slot = SLOT;
+      yield();
+    }
+  }
 
   usertrapret();
 }
