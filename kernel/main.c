@@ -31,6 +31,7 @@ main()
     userinit();      // first user process
     __sync_synchronize();
     started = 1;
+    printf("hart 0 starting\n");
   } else {
     while(started == 0)
       ;

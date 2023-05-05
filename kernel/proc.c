@@ -234,7 +234,7 @@ userinit(void)
 {
   struct proc *p;
 
-  p = allocproc();
+  p = allocproc(); // 在进程表中查找未使用的进程。
   initproc = p;
   
   // allocate one user page and copy initcode's instructions
@@ -679,5 +679,22 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+
+// Print a sleep process listing to console. 
+// Runs when user types ^R on console.
+// No lock to avoid wedging a stuck machine further.
+void
+print_sleep(void)
+{
+  struct proc *p;
+
+  printf("\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == SLEEPING) {
+      printf("%d SLEEPING %s %p", p->pid, p->name, p->chan);
+      printf("\n");
+    }
   }
 }
