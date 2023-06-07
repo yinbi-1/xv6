@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -14,46 +16,81 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+extern struct spinlock cntpage;
+extern int cntpg;
 
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
 {
+  
   pagetable_t kpgtbl;
 
   kpgtbl = (pagetable_t) kalloc();
+
+  // printf("kpgtbl kalloc\n");
+  // vmprint(kpgtbl);
+  // printf("count kpgtbl kalloc: %d\n", cntpg);
+
   memset(kpgtbl, 0, PGSIZE);
 
   // uart registers
   kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
+  // printf("UART0 kalloc %p\n", UART0);
+  // vmprint(kpgtbl);
+  // printf("count UART0 kalloc: %d\n", cntpg);
+
   // virtio mmio disk interface
   kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
+  // printf("VIRTIO0 kalloc %p\n", VIRTIO0);
+  // vmprint(kpgtbl);
+  // printf("count VIRTIO0 kalloc: %d\n", cntpg);
+
+  acquire(&cntpage);
   // PLIC
   kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+
+  // printf("PLIC kalloc %p %p\n", PLIC, PGROUNDDOWN(PLIC + 0x400000));
+  // vmprint(kpgtbl);
+  // printf("count PLIC kalloc: %d\n", cntpg);
 
   // map kernel text executable and read-only.
   kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
 
+  // printf("KERNBASE kalloc %p %p\n", KERNBASE, KERNBASE + (uint64)etext-KERNBASE);
+  // vmprint(kpgtbl);
+  // printf("count KERNBASE kalloc: %d\n", cntpg);
+
   // map kernel data and the physical RAM we'll make use of.
   kvmmap(kpgtbl, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+
+  // printf("etext kalloc %p %p\n", (uint64)etext, (uint64)etext + PHYSTOP-(uint64)etext);
+  // vmprint(kpgtbl);
+  // printf("count etext kalloc: %d\n", cntpg);
 
   // map the trampoline for trap entry/exit to
   // the highest virtual address in the kernel.
   kvmmap(kpgtbl, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 
+  // printf("TRAMPOLINE kalloc\n");
+  // vmprint(kpgtbl);
+  // printf("count TRAMPOLINE kalloc: %d\n", cntpg);
+
   // allocate and map a kernel stack for each process.
   proc_mapstacks(kpgtbl);
-  
+  // printf("count kalloc: %d\n", cntpg);
+  release(&cntpage);
   return kpgtbl;
-}
+} 
 
 // Initialize the one kernel_pagetable
 void
 kvminit(void)
 {
   kernel_pagetable = kvmmake();
+  printf("count kalloc: %d\n", cntpg);
 }
 
 // Switch h/w page table register to the kernel's page table,
@@ -308,7 +345,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -316,14 +353,21 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+
+    if (*pte & PTE_W) {
+      *pte = (*pte & ~PTE_W) | PTE_COW;
+    }
+
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
+      // kfree(mem);
       goto err;
     }
+
+    krefpage((void*) pa); // 将物理页的引用计数+1
   }
   return 0;
 
@@ -345,6 +389,43 @@ uvmclear(pagetable_t pagetable, uint64 va)
   *pte &= ~PTE_U;
 }
 
+
+
+int
+uvmcheckcow(uint64 va) {
+  pte_t* pte;
+  struct proc* p = myproc();
+
+  return va < p->sz
+    && ((pte = walk(p->pagetable, va, 0))!= 0)
+    && (*pte & PTE_V)
+    && (*pte & PTE_COW);
+}
+
+// 实复制一个懒复制页，并重新映射为可写
+int
+uvmcow(uint64 va) {
+  pte_t* pte;
+  struct proc* p = myproc();
+
+  if ((pte = walk(p->pagetable, va, 0)) == 0) {
+    panic("uvmcowcopy: walk");
+  }
+
+  uint64 pa = PTE2PA(*pte);
+  uint64 new = (uint64)kcopy_n_deref((void*)pa);
+  if (new == 0) {
+    return -1;
+  }
+
+  uint64 flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_COW;
+  uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 0);
+  if(mappages(p->pagetable, va, 1, new, flags) != 0)
+    panic("uvmcow: mappages");
+
+  return 0;
+}
+
 // Copy from kernel to user.
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
@@ -354,6 +435,9 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   uint64 n, va0, pa0;
 
   while(len > 0){
+    if (uvmcheckcow(dstva))
+      uvmcow(dstva);
+
     va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
@@ -437,3 +521,62 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+int pgtblprint(pagetable_t pagetable, int depth) {
+  for (int i = 0; i < 512; ++i) {
+    pte_t pte = pagetable[i];
+
+    if (pte & PTE_V) {
+      printf("..");
+
+      for (int j = 0; j < depth; ++j) {
+        printf(" ..");
+      }
+
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+
+      if ((pte & (PTE_W | PTE_R | PTE_X)) == 0) {
+        uint64 child = PTE2PA(pte);
+        pgtblprint((pagetable_t) child, depth + 1);
+      }
+    }
+  }
+
+  return 0;
+}
+
+// 打印页表
+int vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  return pgtblprint(pagetable, 0);
+}
+
+
+// // kernel/vm.c
+// int pgtblprint(pagetable_t pagetable, int depth) {
+//   // there are 2^9 = 512 PTEs in a page table.
+//   for(int i = 0; i < 512; i++){
+//     pte_t pte = pagetable[i];
+//     if(pte & PTE_V) { // 如果页表项有效
+//       // 按格式打印页表项
+//       printf("..");
+//       for(int j=0;j<depth;j++) {
+//         printf(" ..");
+//       }
+//       printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+
+//       // 如果该节点不是叶节点，递归打印其子节点。
+//       if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+//         // this PTE points to a lower-level page table.
+//         uint64 child = PTE2PA(pte);
+//         pgtblprint((pagetable_t)child,depth+1);
+//       }
+//     }
+//   }
+//   return 0;
+// }
+
+// int vmprint(pagetable_t pagetable) {
+//   printf("page table %p\n", pagetable);
+//   return pgtblprint(pagetable, 0);
+// }

@@ -1,7 +1,9 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
+#include "kernel/termios.h"
 #include "user/user.h"
+#include "kernel/ioctl.h"
 
 //
 // wrapper so that it's OK if main() does not call exit().
@@ -144,4 +146,18 @@ void *
 memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
+}
+
+
+/*termios.h*/
+int tcgetattr(int fd, struct termios *termios_p) {
+  return ioctl(fd, TCGETA,&termios_p);
+  return 0;
+}
+void cfmakeraw(struct termios *termios_p){
+  // Ignore optional_actions
+  termios_p->c_lflag = 0;
+}
+int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
+  return ioctl(fd, TCSETA, &termios_p);
 }

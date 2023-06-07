@@ -16,6 +16,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+#include "termios.h"
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -502,4 +504,21 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+uint64
+sys_ioctl(void) {
+  int fd;
+  struct file* f;
+  int request;
+
+  argint(1, &request);
+  if (argfd(0, &fd, &f) < 0)
+    return -1;
+  if (f->ip->type != T_DEVICE)
+    return -1;
+  if (f->ip->major < 0 || f->ip->major >= NDEV || !devsw[f->ip->major].ioctl)
+    return -1;
+  
+  return devsw[f->ip->major].ioctl(f->ip, request);
 }

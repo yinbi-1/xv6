@@ -68,6 +68,22 @@ argaddr(int n, uint64 *ip)
   *ip = argraw(n);
 }
 
+// // Fetch the nth word-sized system call argument as a pointer
+// // to a block of memory of size n bytes.  Check that the pointer
+// // lies within the process address space.
+// int 
+// argptr(int n, char **pp, int size) {
+//   int i;
+//   struct proc* p = myproc();
+
+//   argint(n, &i);
+
+//   if (size < 0 || (uint)i >= p->sz || (uint)i + size > p->sz)
+//     return -1;
+//   *pp = (char*)i;
+//   return 0;
+// }
+
 // Fetch the nth word-sized system call argument as a null-terminated string.
 // Copies into buf, at most max.
 // Returns string length if OK (including nul), -1 if error.
@@ -101,6 +117,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_ioctl(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +143,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_ioctl]   sys_ioctl,
 };
 
 void
