@@ -68,21 +68,21 @@ argaddr(int n, uint64 *ip)
   *ip = argraw(n);
 }
 
-// // Fetch the nth word-sized system call argument as a pointer
-// // to a block of memory of size n bytes.  Check that the pointer
-// // lies within the process address space.
-// int 
-// argptr(int n, char **pp, int size) {
-//   int i;
-//   struct proc* p = myproc();
+// Fetch the nth word-sized system call argument as a pointer
+// to a block of memory of size n bytes.  Check that the pointer
+// lies within the process address space.
+int 
+argptr(int n, char **pp, int size) {
+  int i;
+  struct proc* p = myproc();
 
-//   argint(n, &i);
+  argint(n, &i);
 
-//   if (size < 0 || (uint)i >= p->sz || (uint)i + size > p->sz)
-//     return -1;
-//   *pp = (char*)i;
-//   return 0;
-// }
+  if (size < 0 || (uint)i >= p->sz || (uint)i + size > p->sz)
+    return -1;
+  *pp =(char*)i;
+  return 0;
+}
 
 // Fetch the nth word-sized system call argument as a null-terminated string.
 // Copies into buf, at most max.

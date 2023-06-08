@@ -367,7 +367,7 @@ void save(){
 }
 
 char* fgets(char *s, int max, int fd) {
-  int i, cc;
+  int i, cc = 0;
   char c;
   char *buf;
   buf = s;
@@ -385,7 +385,7 @@ char* fgets(char *s, int max, int fd) {
   buf[i++] = '\0';
 
   // EOF
-  return (c == 0 && buf == s) ? 0 : s;
+  return (cc == 0 && buf == s) ? 0 : s;
 }
 
 void load(){
@@ -526,11 +526,8 @@ void input_hook(){
   char c;
   int len = read(0, &c, 1);
   if (len < 0)
-    printf("input_hook: read\n");
+    error("input_hook: read\n");
   
-  if (c == 'n')
-    printf("input n\n");
-    
   switch(mode){
   case MODE_NORMAL:
     set_statusbar_mode("[normal]");
@@ -548,7 +545,7 @@ void input_hook(){
 
 // term
 void init_term(){
-  // tcgetattr(0, termios);
+  // tcgetattr(0, &termios);
   termios.c_lflag &= ~ICANON;
   tcsetattr(0, TCSANOW, &termios);
 }

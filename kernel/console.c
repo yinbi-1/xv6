@@ -225,6 +225,23 @@ consoleioctl(struct inode* ip, int req) {
   return 0;
 }
 
+// int
+// consoleioctl(struct inode *ip, int req)
+// {
+//   struct termios *termios_p;
+//   if(req != TCGETA && req != TCSETA)
+//     return -1;
+//   if(argptr(2, (void**)&termios_p, sizeof(*termios_p)) < 0)
+//     return -1;
+//   if(req == TCGETA)
+//     *termios_p = cons.termios;
+//   else
+//     cons.termios = *termios_p;
+
+//   return 0;
+// }
+
+
 void
 consoleinit(void)
 {
