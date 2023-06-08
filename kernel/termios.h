@@ -13,9 +13,8 @@ struct termios {
     cc_t     c_cc[NCCS]; /*special characters*/
 };
 
-int tcgetattr(int, struct termios*);
-void cfmakeraw(struct termios *);
-int tcsetattr(int, int, const struct termios*);
+int tcgetattr(int, int);
+int tcsetattr(int, int, const int);
 
 /*c_lflag bits*/
 #define ECHO 0000010

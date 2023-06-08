@@ -199,47 +199,16 @@ int
 consoleioctl(struct inode* ip, int req) {
   if (req != TCGETA && req != TCSETA)
     return -1;
-  // printf("termios_p: %p\n", termios_p);
 
-  // int i;
-  // argint(1, &i);
-  // printf("argv[1]: %p %d\n", &i, i);
-
-  // argint(2, &i);
-  // printf("argv[2]: %p %d\n", i, i);
-  // struct termios *termios_p = &i;
-
-  // if(argptr(2, (void*)&termios_p, sizeof(*termios_p)) < 0)
-  //   return -1;
-  // uint64 i;
-  // argaddr(1, &i);
-  // termios_p = (struct termios*)i;
-  // printf("after argptr: %d\n", termios_p->c_lflag);
-  // printf("termios_p.c_lflag: %d", termios_p->c_lflag);
-  if (req == TCGETA) {
-    cons.termios.c_cflag |= ICANON;
+  int i;
+  argint(2, &i);
+  if (i == 0) {
+    cons.termios.c_lflag &= ~ICANON;
   }
   else 
-    cons.termios.c_lflag &= ~ICANON;
-  printf("after init: %d\n", cons.termios.c_lflag);
+    cons.termios.c_lflag |= ICANON;
   return 0;
 }
-
-// int
-// consoleioctl(struct inode *ip, int req)
-// {
-//   struct termios *termios_p;
-//   if(req != TCGETA && req != TCSETA)
-//     return -1;
-//   if(argptr(2, (void**)&termios_p, sizeof(*termios_p)) < 0)
-//     return -1;
-//   if(req == TCGETA)
-//     *termios_p = cons.termios;
-//   else
-//     cons.termios = *termios_p;
-
-//   return 0;
-// }
 
 
 void

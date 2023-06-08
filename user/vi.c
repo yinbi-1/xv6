@@ -265,7 +265,9 @@ void statusbar_command_exec(){
     }
     break;
   case 'w':
-    if(*arg2 != '\0')
+    if (inputfilename[0] != '\0') 
+      strcpy(outputfilename, inputfilename);
+    else if(*arg2 != '\0')
       strcpy(outputfilename, arg2);
     else
       strcpy(outputfilename, "default.viout");
@@ -291,6 +293,7 @@ void link_linebuffer(struct linebuffer *l, struct linebuffer *r){
 }
 void alloc_linebuffer(struct linebuffer *lb){
   lb->buf  = malloc(LINE_BUFFER_LENGTH);
+  memset(lb->buf, '\0', sizeof (lb->buf));
   lb->size = 0;
   lb->prev = 0;
   lb->next = 0;
@@ -391,9 +394,10 @@ char* fgets(char *s, int max, int fd) {
 void load(){
   int ifile;
   char buf[LINE_BUFFER_LENGTH];
+  memset(buf, '\0', sizeof (buf));
   struct linebuffer *lbp,*lbpnext;
 
-  ifile = open(inputfilename, O_RDWR | O_CREATE);
+  ifile = open(inputfilename, O_RDONLY | O_CREATE);
   if(ifile == 0) return;
 
   lbp  = &linebuffer_head;
@@ -547,12 +551,12 @@ void input_hook(){
 void init_term(){
   // tcgetattr(0, &termios);
   termios.c_lflag &= ~ICANON;
-  tcsetattr(0, TCSANOW, &termios);
+  tcsetattr(0, TCSANOW, 0);
 }
 void restore_term(){
   termios.c_lflag |= ICANON;
   // tcsetattr(0, TCSANOW, &termios);
-  tcgetattr(0, &termios);
+  tcsetattr(0, TCSANOW, 1);
 }
 
 // init
