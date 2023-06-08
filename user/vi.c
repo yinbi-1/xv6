@@ -556,7 +556,6 @@ void init_term(){
 void restore_term(){
   termios.c_lflag |= ICANON;
   tcsetattr(0, TCSANOW, &termios);
-  // tcsetattr(0, TCSANOW, 1);
 }
 
 // init
@@ -596,12 +595,6 @@ void cleanup(){
 // main
 int main(int argc, char *argv[]){
   struct linebuffer *top;
-
-  termios.c_cflag = 0;
-  termios.c_iflag = 0;
-  termios.c_lflag = 10;
-  termios.c_oflag = 0;
-  memset(termios.c_cc,'\0', sizeof(termios.c_cc));
 
   init();
   init_term();
