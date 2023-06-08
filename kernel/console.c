@@ -200,13 +200,17 @@ consoleioctl(struct inode* ip, int req) {
   if (req != TCGETA && req != TCSETA)
     return -1;
 
-  int i;
-  argint(2, &i);
-  if (i == 0) {
-    cons.termios.c_lflag &= ~ICANON;
+  uint64 addr;
+  // 获得termios的地址
+  argaddr(2, &addr);
+
+  if (req == TCGETA) {
+    if (copyout(myproc()->pagetable, addr, (char *)&cons.termios, sizeof(cons.termios)) < 0)
+      return -1;
   }
   else 
-    cons.termios.c_lflag |= ICANON;
+    if (copyin(myproc()->pagetable, (char*)&cons.termios, addr, sizeof(cons.termios)) < 0)
+      return -1;
   return 0;
 }
 

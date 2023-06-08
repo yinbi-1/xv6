@@ -549,14 +549,14 @@ void input_hook(){
 
 // term
 void init_term(){
-  // tcgetattr(0, &termios);
+  tcgetattr(0, &termios);
   termios.c_lflag &= ~ICANON;
-  tcsetattr(0, TCSANOW, 0);
+  tcsetattr(0, TCSANOW, &termios);
 }
 void restore_term(){
   termios.c_lflag |= ICANON;
-  // tcsetattr(0, TCSANOW, &termios);
-  tcsetattr(0, TCSANOW, 1);
+  tcsetattr(0, TCSANOW, &termios);
+  // tcsetattr(0, TCSANOW, 1);
 }
 
 // init

@@ -150,10 +150,9 @@ memcpy(void *dst, const void *src, uint n)
 
 
 /*termios.h*/
-int tcgetattr(int fd, int mode) {
-  return ioctl(fd, TCGETA, mode);
-  return 0;
+int tcgetattr(int fd, struct termios* termios_p) {
+  return ioctl(fd, TCGETA, termios_p);
 }
-int tcsetattr(int fd, int optional_actions, const int mode) {
-  return ioctl(fd, TCSETA, mode);
+int tcsetattr(int fd, int optional_actions, const struct termios* termios_p) {
+  return ioctl(fd, TCSETA, termios_p);
 }
