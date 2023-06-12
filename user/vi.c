@@ -37,8 +37,6 @@
 // esc sequence
 #define term_cursor_location(x,y) fprintf(stdout, "\033[%d;%dH" ,y,x)
 
-#define C(x)  ((x)-'@')  // Control-x
-
 // globals
 int mode;
 int command;
