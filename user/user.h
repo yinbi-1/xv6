@@ -23,6 +23,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int ioctl(int fd, unsigned long request, ...);
+int myalloc(int);
+int myfree(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

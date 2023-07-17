@@ -659,6 +659,11 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 void
 procdump(void)
 {
+  // char* a = slabmalloc(1000);
+  // printf("%p\n", a);
+  // slabfree(a);
+  // a = slabmalloc(1088);
+  // printf("%p\n", a);
   static char *states[] = {
   [UNUSED]    "unused",
   [USED]      "used",

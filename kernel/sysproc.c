@@ -89,3 +89,25 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// for slab alloc
+int sys_myalloc(void) {
+  int size;
+  argint(0, &size);
+
+  char *addr;
+  if ((addr = slabmalloc((uint)size)) == 0)
+    return -1;
+  uint uva;
+  if ((uva = slabmap(addr)) == -1)
+    return -1;
+  return uva;
+}
+
+int sys_myfree(void) {
+  int addr;
+  argint(0, &addr);
+  char *va = (char*) slabunmap((char*) addr);
+  slabfree(va);
+  return 0;
+}

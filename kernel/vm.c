@@ -552,31 +552,118 @@ int vmprint(pagetable_t pagetable) {
 }
 
 
-// // kernel/vm.c
-// int pgtblprint(pagetable_t pagetable, int depth) {
-//   // there are 2^9 = 512 PTEs in a page table.
-//   for(int i = 0; i < 512; i++){
-//     pte_t pte = pagetable[i];
-//     if(pte & PTE_V) { // 如果页表项有效
-//       // 按格式打印页表项
-//       printf("..");
-//       for(int j=0;j<depth;j++) {
-//         printf(" ..");
-//       }
-//       printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+// 16, 32, 64, 128, 256, 512, 1024, 2048
+struct slab {
+    char *s_mem;
+    char *end;
+    uint inuse;
+}slab[8];
 
-//       // 如果该节点不是叶节点，递归打印其子节点。
-//       if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
-//         // this PTE points to a lower-level page table.
-//         uint64 child = PTE2PA(pte);
-//         pgtblprint((pagetable_t)child,depth+1);
-//       }
-//     }
-//   }
-//   return 0;
-// }
+#define V2P(a) ((uint)(a) - KERNBASE)
+#define P2V(a) ((void*)((uint)(a) + KERNBASE))
 
-// int vmprint(pagetable_t pagetable) {
-//   printf("page table %p\n", pagetable);
-//   return pgtblprint(pagetable, 0);
-// }
+void slabinit() {
+    for (int i = 0; i < 8; ++i) {
+        slab[i].inuse = 0;
+
+        for (int j = 0; j < NSLABPAGE; ++j) {
+            slab[i].s_mem = kalloc();
+        }
+
+        uint size = 1 << (i + 4);
+        slab[i].end = slab[i].s_mem + PGSIZE * NSLABPAGE;
+        uint num = 1;
+        char *obj;
+        for (obj = slab[i].s_mem; obj + size <= slab[i].end; obj += size, num++) {
+            *(uint*)obj = num;
+        }
+
+        obj -= size;
+        *(uint*)obj = -1;
+    }
+}
+
+uint getIndex(uint size) {
+    uint index = 0;
+    while (size > (1 << (index + 4))) {
+        index++;
+    }
+    return index;
+}
+
+char* slabmalloc(uint size) {
+    if (size == 0 || size > 2048) return 0;
+
+    uint index = getIndex(size);
+    uint inuse = slab[index].inuse;
+    if (inuse == -1) return 0;
+
+    uint asize = 1 << (index + 4);
+    char *obj = slab[index].s_mem + inuse * asize;
+    slab[index].inuse = *(uint*)obj;
+    // memset(obj, 0, asize);
+    return obj;
+}
+
+int slabfree(char *addr) {
+    uint i;
+    for (i = 0; i < 8; ++i) {
+        if (slab[i].s_mem <= addr && addr < slab[i].end)
+            break;
+    }
+
+    if (i == 8) return -1;
+
+    uint asize = 1 << (i + 4);
+    *(uint*)addr = slab[i].inuse;
+    slab[i].inuse = (addr - slab[i].s_mem) / asize;
+    return 0;
+}
+
+uint slabmap(char *addr) {
+    int i;
+    int use = -1;
+    uint pa = PGROUNDDOWN(V2P(addr));
+
+    for (i = 0; i < NSLABPAGE * 8; ++i) {
+        if (myproc()->usenum[i] == 0) {
+            if (use == -1)
+                use = i;
+            continue;
+        }
+
+        pte_t *pte;
+        uint va = SLABBASE + i * PGSIZE;
+        if ((pte = walk(myproc()->pagetable, (void*)va, 0)) != 0) {
+            uint currpa = PTE2PA(*pte);
+            if (currpa == pa) {
+                use = i;
+                break;
+            }
+        }
+    }
+
+    if (use == -1) return -1;
+
+    uint uva = SLABBASE + use*PGSIZE;
+    if (myproc()->usenum[use] == 0) {
+        if (mappages(myproc()->pagetable, (char*)uva, PGSIZE, pa, PTE_W | PTE_U) == -1)
+            return -1;
+    }
+
+    myproc()->usenum[use]++;
+
+    return uva + V2P(addr)-pa;
+}
+
+uint slabunmap(char *addr) {
+    uint uva = (uint)addr;
+    uint offset = uva - PGROUNDDOWN(uva);
+    pte_t *pte = walk(myproc()->pagetable, (void*)uva, 0);
+    uint pa = PTE2PA(*pte);
+    uint use = (pa - SLABBASE) / PGSIZE;
+    if (--(myproc()->usenum[use]) == 0) {
+        *pte = 0;
+    }
+    return (uint)P2V(pa) + offset;
+}

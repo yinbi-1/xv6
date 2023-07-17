@@ -106,6 +106,8 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   int slot; // time slot(ticks)
+
+  int usenum[NSLABPAGE]; // for slab allocator
 };
 
 #define SLOT 8  // one slot contains 8 tricks

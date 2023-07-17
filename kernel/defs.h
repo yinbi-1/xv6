@@ -179,6 +179,11 @@ int             copyinstr(pagetable_t, char *, uint64, uint64);
 int             uvmcheckcow(uint64 va);
 int             uvmcow(uint64 va);
 int             vmprint(pagetable_t pagetable);
+char*           slabmalloc(uint size);
+int             slabfree(char *addr);
+uint            slabmap(char *addr);
+uint            slabunmap(char *addr);
+void            slabinit(void);
 
 // plic.c
 void            plicinit(void);

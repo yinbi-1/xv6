@@ -139,6 +139,7 @@ UPROGS=\
 	$U/_my-app\
 	$U/_forkLab\
 	$U/_vi\
+	$U/_slabTest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
